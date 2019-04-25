@@ -6,7 +6,6 @@
 
     <link rel="stylesheet" href="lbry-color.css"/>
     <link rel="stylesheet" href="reset.css"/>
-
     <style>
       body {
         background-color: var(--lbry-cyan-5);
@@ -16,19 +15,73 @@
 
       section {
         text-align: center;
+        display: block;
       }
 
       p:not(:last-of-type) {
         margin-bottom: 2rem;
       }
 
-      a {
+      .hidden {
+        display: none;
+      }
+
+      label, a {
         background-color: var(--lbry-white);
         border-radius: 0.2rem;
         color: var(--lbry-cyan-5);
         font-size: 1.2rem;
         padding: 0.2rem 0.5rem;
         text-decoration: none;
+        box-sizing: border-box;
+      }
+      label.choice{
+        display: inline;
+        vertical-align: middle;
+        padding: 5px;
+        box-sizing: border-box;
+      }
+
+      label.hidden{
+        display: none;
+      }
+      .labl {
+          display : block;
+          box-sizing: border-box;
+      }
+      .labl > input{ /* HIDE RADIO */
+          visibility: hidden; /* Makes input not-clickable */
+          position: absolute; /* Remove input from document flow */
+      }
+      /*get rid of this*/
+      .labl > input + div{ /* DIV STYLES */
+          cursor:pointer;
+          border:2px solid transparent;
+      }
+
+      .labl > input:checked + div{ /* (RADIO CHECKED) DIV STYLES */
+          border: 2px solid var(--lbry-cyan-5);
+      }
+
+      div.choicecontainer {
+        display: flex;
+        flex-direction: row;
+        margin: auto;
+        max-width: 450px;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        margin-bottom: 2rem;
+      }
+      div.choiceblock {
+        display: flex;
+        flex-direction: column;
+        width: 200px;
+        margin: 5px;
+        justify-content: flex-start;
+      }
+      div > p {
+        text-align: left;
+        margin: 4px;
       }
     </style>
   </head>
@@ -36,7 +89,26 @@
   <body>
     <section>
       <h1>Buckle up, gang!</h1>
-      <p>Redirect in progress...</p>
+      <p id="countdown">In <span id="timer"></span> second(s), we're sending you to <span id="dest"></span><a href="javascript:;" onclick="stop()"> Stop</a></p>
+      <p id="message" class="hidden">You can save a default destination for lbry links! When you're done, click <a href="javascript:;" onclick="goToLbry()">Go</a></p>
+      <div class="choicecontainer">
+        <div class="choiceblock">
+          <label class="labl choice">
+              <input type="radio" name="lbrytarget" value="2" checked="checked"  onclick="handleChoice(this);"  id="appRadio"/>
+              <div>LBRY App</div>
+          </label>
+          <p>This is the full featured local app that you have downloaded.</p>
+        </div>
+        <div class="choiceblock">
+          <label class="labl choice">
+            <input type="radio" name="lbrytarget" value="1" onclick="handleChoice(this);" id="tvRadio"/>
+            <div>LBRY.tv</div>
+          </label>
+          <p>This is a web version you do not need to download.</p>
+        </div>
+      </div>
+      <p>Remeber this setting <input id="remember" type="checkbox" name="remember" onclick="handleRemember(this)"></p>
+      <p><a href="javascript:;" onclick="goToLbry()">Go</a></p>
       <p>If you do not have the LBRY app, you can <a href="https://lbry.io/get" rel="noopener noreferrer" target="_blank">download it here</a>.</p>
     </section>
   </body>
@@ -45,14 +117,85 @@
     (function(i,s,o,g,r,a,m){i["GoogleAnalyticsObject"]=r;i[r]=i[r]||function(){(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)})(window,document,"script","https://www.google-analytics.com/analytics.js","ga");
     ga("create", "UA-60403362-9", "auto");
     ga("send", "pageview");
-    
+
     const site = window.location.protocol + "//" + window.location.host;
     const url = decodeURIComponent(window.location.href.replace(site,"").replace(/^\//,""));
-  
-    if (url) {
-      setTimeout(() => {
-        window.location = "lbry://" + url;
-      }, 2000);
+
+
+    const tvPrefix = 'https://beta.lbry.tv/';
+    const appPrefix = 'lbry://';
+
+    let go = true;
+    let storedDest = localStorage.getItem("lbrytarget");
+    let prefix = storedDest && appPrefix || tvPrefix;
+    let dest = document.getElementById('dest');
+    let timer = document.getElementById('timer');
+    let choice = storedDest || "tvRadio";
+    console.log(choice)
+
+    dest.innerHTML = "LBRY.tv";
+
+    document.getElementById(choice).checked = true;
+
+    function stop() {
+      //change message
+      //stop redirect timer
+      document.getElementById('countdown').classList.add('hidden');
+      document.getElementById('message').classList.remove('hidden');
+      go = false;
     }
+
+    function goToLbry() {
+      window.location = prefix + url;
+    }
+
+    function handleRemember(box) {
+      stop()
+      !box.checked && localStorage.removeItem('lbrytarget');
+      !box.checked && console.log('clearing preference');
+      box.checked && localStorage.setItem('lbrytarget', choice);
+      box.checked && console.log('saving ', choice, 'to preference');
+    }
+
+    function handleChoice(myChoice) {
+      stop();
+      choice = myChoice.id;
+      dest.innerHTML = (choice === "appRadio") ? "your LBRY App" : "LBRY.tv";
+      prefix = (choice === "appRadio") ? appPrefix : tvPrefix;
+      if (document.getElementById('remember').checked) {
+        localStorage.setItem('lbrytarget', myChoice.id);
+      }
+      else {
+        localStorage.removeItem('lbrytarget');
+      }
+      console.log('selected ', choice, ' with prefix ', prefix);
+    }
+
+    function countDown(time) {
+      console.log(time);
+      let count = time;
+      if (go) {
+        if (count > 0) {
+            count--;
+            timer.innerHTML = " "+time+" ";
+            return setTimeout(() => {countDown(count)}, 1000);
+        } else {
+          console.log("sent to" + prefix + url);
+          // window.location = redirect;
+        }
+      }
+      return
+    }
+
+    function letsGo() {
+      if (storedDest){
+        countDown(1);
+      } else {
+        countDown(5);
+      }
+    }
+
+    letsGo();
+
   </script>
 </html>
